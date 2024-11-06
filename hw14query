@@ -1,0 +1,71 @@
+CREATE TABLE role (
+	Roleid SERIAL PRIMARY KEY,
+	Rolename VARCHAR(50) NOT NULL,
+	Description TEXT
+);
+
+CREATE TABLE USERS (
+	USERID SERIAL PRIMARY KEY,
+	Name VARCHAR(100) NOT NULL,
+	Email VARCHAR(250) UNIQUE NOT NULL,
+	Address VARCHAR(250),
+	RegistrationDate DATE NOT NULL,
+	Roleid INT REFERENCES role(Roleid)
+);
+
+
+CREATE TABLE Category(
+	categoryid SERIAL PRIMARY KEY,
+	categoryname VARCHAR(100) NOT NULL,
+	createdby INT REFERENCES role(Roleid)
+);
+
+CREATE TABLE product(
+	productid SERIAL PRIMARY KEY,
+	productname VARCHAR(100) NOT NULL,
+	description TEXT,
+	price DECIMAL(10,2) NOT NULL,
+	stockquantity INT NOT NULL,
+	creationDate DATE NOT NULL,
+	sellerid INT REFERENCES users(userid),
+	caregoryid INT REFERENCES category(categoryid)
+);
+
+CREATE TYPE orderstatus as ENUM ('pending','shipped','deliverd','canceld');
+CREATE TYPE PaymentStatus as ENUM('paid','unpaid');
+
+CREATE TABLE orders(
+	orderid SERIAL PRIMARY KEY,
+	orderdate DATE NOT NULL,
+	STATUS orderstatus NOT NULL,
+	paystatus Paymentstatus NOT NULL,
+	buyerid INT REFERENCES users(userid),
+	PaymentID INT REFERENCES Payment(PaymentID)
+);
+
+CREATE TABLE OrderItem (
+    OrderItemID SERIAL PRIMARY KEY,
+    OrderID INT REFERENCES Orders(OrderID),
+    ProductID INT REFERENCES Product(ProductID),
+    Quantity INT NOT NULL,
+    UnitPrice DECIMAL(10, 2) NOT NULL
+);
+
+
+CREATE TYPE PaymentMethod AS ENUM ('credit_card', 'paypal', 'bank_transfer');
+CREATE TABLE Payment (
+    PaymentID SERIAL PRIMARY KEY,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PaymentDate DATE NOT NULL,
+    PaymentMethod PaymentMethod NOT NULL
+);
+
+
+
+CREATE TABLE Review (
+    ReviewID SERIAL PRIMARY KEY,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    Comment TEXT,
+    ProductID INT REFERENCES Product(ProductID),
+    UserID INT REFERENCES Users(UserID)
+);
