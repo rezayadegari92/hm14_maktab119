@@ -1,0 +1,184 @@
+CREATE TABLE role (
+	Roleid SERIAL PRIMARY KEY,
+	Rolename VARCHAR(50) NOT NULL,
+	Description TEXT
+);
+
+INSERT INTO role (rolename,Description)
+VALUES('buyer','can buy products and order'),
+('seller','make and prepare product for sale'),
+('admin','manage the application');
+select * from role
+-------------------------------------------------
+CREATE TABLE USERS (
+	USERID SERIAL PRIMARY KEY,
+	Name VARCHAR(100) NOT NULL,
+	Email VARCHAR(250) UNIQUE NOT NULL,
+	Address VARCHAR(250),
+	RegistrationDate DATE NOT NULL,
+	Roleid INT REFERENCES role(Roleid)
+);
+ALTER TABLE USERS  
+ADD phone_number VARCHAR(25);  
+
+INSERT INTO users (name, email, address, phone_number, registrationdate, roleid)
+VALUES 
+    ('lili', 'lili@example.com', '12345 Main St', '5553-1234', '2023-01-10', 1),
+	('chandler', 'msbong@example.com', '45886 Oak St', '5554-5678', '2023-01-15', 1),
+	('joey', 'joey@example.com', '78922 Pine St', '55512-8765', '2023-01-20', 1);
+
+select * from users	
+---------------------------------------------------------
+CREATE TABLE Category(
+	categoryid SERIAL PRIMARY KEY,
+	categoryname VARCHAR(100) NOT NULL,
+	createdby INT REFERENCES role(Roleid)
+);
+INSERT INTO category (categoryname,createdby)
+VALUES ('Electronics',3),
+		('Fashion',3),
+		('Home Appliances',3);
+----------------------------------------------------
+CREATE TABLE product(
+	productid SERIAL PRIMARY KEY,
+	productname VARCHAR(100) NOT NULL,
+	description TEXT,
+	price DECIMAL(10,2) NOT NULL,
+	stockquantity INT NOT NULL,
+	creationDate DATE NOT NULL,
+	sellerid INT REFERENCES users(userid),
+	caregoryid INT REFERENCES category(categoryid)
+);
+INSERT INTO product (productname, description, price, stockquantity, creationdate, sellerid,caregoryid)
+VALUES 
+	('laptop', 'Latest model with advanced features', 950.99, 40, '2023-09-01', 2,1),
+	('socks', 'Comfortable ', 9.99, 100, '2023-05-05', 2,2),
+	('mixer', 'the new model', 9.99, 30, '2023-05-10', 2,3);
+select * from product
+----------------------------------------------------------------
+CREATE TYPE orderstatus as ENUM ('pending','shipped','deliverd','canceld');
+CREATE TYPE PaymentStatus as ENUM('paid','unpaid');
+-----------------------------------------------------------------
+CREATE TABLE orders(
+	orderid SERIAL PRIMARY KEY,
+	orderdate DATE NOT NULL,
+	STATUS orderstatus NOT NULL,
+	paystatus Paymentstatus NOT NULL,
+	buyerid INT REFERENCES users(userid),
+	PaymentID INT REFERENCES Payment(PaymentID)
+);
+INSERT INTO orders (orderdate, status, paystatus, buyerid,PaymentID)
+VALUES 
+    ('2023-03-01', 'pending', 'paid', 1,1),
+    ('2023-03-05', 'shipped', 'paid', 4,2);
+
+SELECT * FROM ORDERS;
+-----------------------------------------------------------------------
+CREATE TABLE OrderItem (
+    OrderItemID SERIAL PRIMARY KEY,
+    OrderID INT REFERENCES Orders(OrderID),
+    ProductID INT REFERENCES Product(ProductID),
+    Quantity INT NOT NULL,
+    UnitPrice DECIMAL(10, 2) NOT NULL
+);
+INSERT INTO orderitem (orderid, productid, quantity,UnitPrice)
+VALUES 
+    (3, 1, 2,1399.98),  
+    (4, 2, 1,79.98);
+	
+--------------------------------------------------------------------
+CREATE TYPE PaymentMethod AS ENUM ('credit_card', 'paypal', 'bank_transfer');
+CREATE TABLE Payment (
+    PaymentID SERIAL PRIMARY KEY,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PaymentDate DATE NOT NULL,
+    PaymentMethod PaymentMethod NOT NULL
+);
+
+INSERT INTO payment (amount, paymentdate, paymentmethod)
+VALUES 
+    (1399.98, '2023-03-05', 'credit_card'),
+	(79.98,'2024-03-05','credit_card'),
+	(199.98,'2024-09-12','credit_card');
+
+
+-------------------------------------------------------
+CREATE TABLE Review (
+    ReviewID SERIAL PRIMARY KEY,
+    Rating INT CHECK (Rating BETWEEN 1 AND 5),
+    Comment TEXT,
+    ProductID INT REFERENCES Product(ProductID),
+    UserID INT REFERENCES Users(UserID)
+);
+
+INSERT INTO review (userid, productid, rating, comment)
+
+VALUES 
+
+    (1, 1, 5, 'Excellent smartphone! Worth every penny.'),
+
+    (1, 2, 4, 'Good quality jeans, but size runs a bit small.');
+---------------------------------------------------------
+---1
+SELECT p.productid,p.productname AS product_name, SUM(oi.quantity) AS total_quantity_sold
+
+FROM product p
+
+JOIN orderitem oi ON p.productid = oi.productid GROUP BY  p.productid, p.productname
+
+ORDER BY total_quantity_sold DESC
+
+LIMIT 5;
+
+-------2
+SELECT o.orderid,o.orderdate,o.status AS orderstatus,p.productid,p.productname AS product_name,oi.quantity,p.price AS product_price,(oi.quantity * p.price) AS line_total,(SELECT SUM(oi.quantity * p.price) 
+     FROM orderitem oi 
+     JOIN product p ON oi.productid = p.productid 
+     WHERE oi.orderid = o.orderid AS total_order_amount,pay.payment_status
+
+FROM orders o
+JOIN orderitem oi ON o.orderid = oi.orderid
+JOIN product p ON oi.productid = p.productid
+--LEFT JOIN payment pay ON o.orderid = pay.orderid
+WHERE o.buyerid = userid; 	
+
+----------------3
+SELECT c.categoryname,p.productid,P.productname AS product_name,AVG(r.rating) AS avg_rating
+
+FROM product p
+
+JOIN category c ON p.caregoryid = c.categoryid
+
+JOIN review r ON p.productid = r.productid
+
+GROUP BY c.categoryname, p.productid, p.productname
+
+HAVING AVG(r.rating) >= 4.5
+
+ORDER BY c.categoryname, avg_rating DESC;
+---------------------------4
+UPDATE product
+SET stockquantity = stockquantity - (
+    SELECT SUM(oi.quantity)
+    FROM orderitem oi
+    WHERE oi.productid = product.productid
+      AND oi.orderid = 3  
+)
+WHERE productid IN (
+    SELECT productid 
+    FROM orderitem 
+    WHERE orderid = 3  
+);
+-----------------------------5
+SELECT u.userid AS sellerid,u.name AS seller_name,SUM(oi.quantity * p.price) AS total_sales_amount
+FROM users u
+JOIN product p ON u.userid = p.sellerid
+JOIN orderitem oi ON p.productid = oi.productid
+JOIN orders o ON oi.orderid = o.orderid
+WHERE DATE_PART('month', o.orderdate) = DATE_PART('month', CURRENT_DATE)
+
+    AND DATE_PART('year', o.orderdate) = DATE_PART('year', CURRENT_DATE)
+
+GROUP BY u.userid, u.name
+ORDER BY total_sales_amount DESC;
+---------------------------------------------------------------
